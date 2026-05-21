@@ -17,7 +17,6 @@
         table { border-collapse: collapse; background: #111; }
         th, td { padding: 12px 25px; border: 1px solid #00ffff; text-align: center; font-size: 22px; }
         th { background: #00ffff; color: #000; }
-        tr:nth-child(even) { background: #1a1a1a; }
 
         #levelSelect { display: none; flex-direction: column; align-items: center; gap: 15px; margin-top: 20px; }
         #ui { position: absolute; top: 20px; left: 20px; z-index: 10; }
@@ -61,8 +60,308 @@
     <canvas id="gameCanvas"></canvas>
 
 <script>
-    // Полный код игры (я сократил здесь для сообщения, но вставь весь код из предыдущего сообщения)
-    // Если нужно, скажи "Дай полный код" и я пришлю его заново.
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    let score = 0, level = 1, hp = 5, highscore = 0;
+    let gameRunning = false;
+    let lastSpawn = 0, lastShot = 0;
+    let enemySpeed = 3.8, spawnRate = 550, fireRate = 140;
+    let weaponLevel = 1, playerSpeed = 9, bossesDefeated = 0;
+    let currentPlayerName = "";
+
+    const player = { x: canvas.width/2 - 20, y: canvas.height - 80, w: 40, h: 50 };
+    let projectiles = [], enemies = [], particles = [], powerups = [];
+    let boss = null;
+    const keys = {};
+    let stars = [];
+    let cheatInput = "";
+    let leaderboard = [];
+
+    try { leaderboard = JSON.parse(localStorage.getItem('hyperHordeLB')) || []; } catch(e){}
+
+    function saveLeaderboard() {
+        try { localStorage.setItem('hyperHordeLB', JSON.stringify(leaderboard)); } catch(e){}
+    }
+
+    function updateLeaderboardTable() {
+        let html = `<tr><th>#</th><th>Player</th><th>Score</th></tr>`;
+        leaderboard.slice(0, 10).forEach((entry, i) => {
+            html += `<tr><td>${i+1}</td><td>${entry.name}</td><td>${entry.score}</td></tr>`;
+        });
+        if (leaderboard.length === 0) html += `<tr><td colspan="3">No records yet</td></tr>`;
+        document.getElementById('leaderTable').innerHTML = html;
+    }
+
+    function showLeaderboard() {
+        updateLeaderboardTable();
+        document.getElementById('leaderboard').style.display = 'flex';
+    }
+
+    function hideLeaderboard() {
+        document.getElementById('leaderboard').style.display = 'none';
+    }
+
+    const playerNameInput = document.getElementById('playerName');
+    const startBtn = document.getElementById('startBtn');
+    playerNameInput.addEventListener('input', () => {
+        startBtn.disabled = playerNameInput.value.trim() === "";
+    });
+
+    function createStars() {
+        stars = [];
+        for(let i = 0; i < 180; i++) {
+            stars.push({x: Math.random()*canvas.width, y: Math.random()*canvas.height, size: Math.random()*3 + 0.8, speed: Math.random()*1.2 + 0.6});
+        }
+    }
+
+    window.addEventListener('keydown', e => {
+        keys[e.code] = true;
+        if (!gameRunning) {
+            cheatInput += e.key.toLowerCase();
+            if (cheatInput.length > 10) cheatInput = cheatInput.slice(-10);
+            if (cheatInput.includes("idi")) document.getElementById('levelSelect').style.display = "flex";
+        }
+    });
+    window.addEventListener('keyup', e => keys[e.code] = false);
+
+    class Particle {
+        constructor(x, y, color) {
+            this.x = x; this.y = y;
+            this.size = Math.random() * 7 + 3;
+            this.speedX = (Math.random() - 0.5) * 14;
+            this.speedY = (Math.random() - 0.5) * 14;
+            this.life = 1;
+            this.color = color;
+        }
+        update() { this.x += this.speedX; this.y += this.speedY; this.life -= 0.035; }
+        draw() {
+            ctx.fillStyle = `rgba(${this.color},${this.life})`;
+            ctx.fillRect(this.x, this.y, this.size, this.size);
+        }
+    }
+
+    function createExplosion(x, y, color, count = 35) {
+        for(let i = 0; i < count; i++) particles.push(new Particle(x, y, color));
+    }
+
+    function showMessage(text, color = "#00ffff") {
+        const msg = document.getElementById('msg');
+        msg.style.color = color; msg.innerHTML = text; msg.style.display = 'block';
+        setTimeout(() => msg.style.display = 'none', 1600);
+    }
+
+    function spawnEnemy() {
+        if (boss) return;
+        const size = 28 + Math.random() * 28;
+        enemies.push({ x: Math.random() * (canvas.width - size), y: -50, size: size, hp: Math.ceil(level / 2) || 1, speed: enemySpeed * (0.85 + Math.random() * 0.5) });
+    }
+
+    function spawnPowerup() {
+        powerups.push({ x: Math.random() * (canvas.width - 40), y: -40, size: 34, speed: 2.3 });
+    }
+
+    function spawnBoss() {
+        if (boss) return;
+        let hpAmount = bossesDefeated === 0 ? 85 : bossesDefeated === 1 ? 160 : 380;
+        let bulletCount = bossesDefeated === 0 ? 3 : bossesDefeated === 1 ? 4 : 5;
+        const isFinal = bossesDefeated >= 2;
+        const baseY = canvas.height * 0.16;
+        boss = {x: canvas.width/2-80, y: baseY, baseY: baseY, w:160, h:130, hp: hpAmount, maxHp: hpAmount, speed:1.6, direction:1, bulletCount: bulletCount, isFinal: isFinal};
+        showMessage(isFinal ? "FINAL BOSS!!!" : "BOSS INCOMING!", "#ff0066");
+    }
+
+    function shoot() {
+        const now = Date.now();
+        if (now - lastShot < fireRate) return;
+        lastShot = now;
+        const px = player.x + 20;
+        projectiles.push({x: px, y: player.y, vx: 0, vy: -18});
+        if (weaponLevel >= 2) {
+            projectiles.push({x: px-14, y: player.y+6, vx: -4.5, vy: -16});
+            projectiles.push({x: px+14, y: player.y+6, vx: 4.5, vy: -16});
+        }
+    }
+
+    function startGame() {
+        currentPlayerName = playerNameInput.value.trim();
+        if (!currentPlayerName) return;
+        startGameLogic(1);
+    }
+
+    function startWithSelectedLevel() {
+        const lvl = parseInt(document.getElementById('levelChooser').value);
+        startGameLogic(lvl);
+    }
+
+    function startGameLogic(startLvl) {
+        level = startLvl;
+        score = startLvl >= 9 ? 120 : 0;
+        bossesDefeated = startLvl >= 14 ? 2 : startLvl >= 9 ? 1 : 0;
+        hp = 5; weaponLevel = 1;
+        enemySpeed = 3.8 + level * 0.18;
+        spawnRate = Math.max(220, 680 - level * 28);
+
+        projectiles = []; enemies = []; particles = []; powerups = []; boss = null;
+
+        createStars();
+        document.getElementById('score').innerText = score;
+        document.getElementById('level').innerText = level;
+        document.getElementById('hp').innerText = "|||||";
+        player.x = canvas.width/2 - 20;
+
+        gameRunning = true;
+        document.getElementById('lobby').style.display = 'none';
+        lastSpawn = Date.now() - 300;
+    }
+
+    function endGame() {
+        gameRunning = false;
+        if (score > 0 && currentPlayerName) {
+            leaderboard.push({name: currentPlayerName, score: score});
+            leaderboard.sort((a,b) => b.score - a.score);
+            leaderboard = leaderboard.slice(0, 20);
+            saveLeaderboard();
+        }
+        document.getElementById('lobby').style.display = 'flex';
+    }
+
+    function update() {
+        if (!gameRunning) return requestAnimationFrame(update);
+
+        if (keys['ArrowLeft'] && player.x > 0) player.x -= playerSpeed;
+        if (keys['ArrowRight'] && player.x < canvas.width - player.w) player.x += playerSpeed;
+        if (keys['Space']) shoot();
+
+        if (Date.now() - lastSpawn > spawnRate && !boss) {
+            spawnEnemy();
+            lastSpawn = Date.now();
+        }
+
+        if (Math.random() < 0.009) spawnPowerup();
+
+        if (!boss) {
+            if (score >= 200 && bossesDefeated < 3) spawnBoss();
+            else if (score >= 130 && bossesDefeated < 2) spawnBoss();
+            else if (score >= 80 && bossesDefeated < 1) spawnBoss();
+        }
+
+        stars.forEach(s => { s.y += s.speed; if (s.y > canvas.height) s.y = 0; });
+
+        for (let i = projectiles.length-1; i >= 0; i--) {
+            projectiles[i].y += projectiles[i].vy;
+            if (projectiles[i].y < -30) projectiles.splice(i,1);
+        }
+
+        for (let i = enemies.length-1; i >= 0; i--) {
+            const e = enemies[i];
+            e.y += e.speed;
+
+            if (e.y > canvas.height - 30) {
+                hp = Math.max(0, hp - 1);
+                document.getElementById('hp').innerText = "|".repeat(hp);
+                createExplosion(e.x + e.size/2, canvas.height - 40, "255,80,80", 25);
+                enemies.splice(i,1);
+                if (hp <= 0) endGame();
+                continue;
+            }
+
+            if (e.x < player.x + player.w && e.x + e.size > player.x && e.y < player.y + player.h && e.y + e.size > player.y) {
+                hp = Math.max(0, hp-1);
+                document.getElementById('hp').innerText = "|".repeat(hp);
+                createExplosion(e.x + e.size/2, e.y + e.size/2, "255,50,50");
+                enemies.splice(i,1);
+                if (hp <= 0) endGame();
+                continue;
+            }
+
+            for (let j = projectiles.length-1; j >= 0; j--) {
+                const p = projectiles[j];
+                if (p.x > e.x && p.x < e.x + e.size && p.y > e.y && p.y < e.y + e.size) {
+                    e.hp--;
+                    projectiles.splice(j,1);
+                    if (e.hp <= 0) {
+                        createExplosion(e.x + e.size/2, e.y + e.size/2, "255,140,40", 40);
+                        enemies.splice(i,1);
+                        score += 1;
+                        document.getElementById('score').innerText = score;
+                    }
+                    break;
+                }
+            }
+        }
+
+        for (let i = powerups.length-1; i >= 0; i--) {
+            const p = powerups[i];
+            p.y += p.speed;
+            if (p.y > canvas.height) { powerups.splice(i,1); continue; }
+
+            if (p.x < player.x + player.w && p.x + p.size > player.x && p.y < player.y + player.h && p.y + p.size > player.y) {
+                if (hp < 7) {
+                    hp++;
+                    document.getElementById('hp').innerText = "|".repeat(hp);
+                    createExplosion(p.x + p.size/2, p.y + p.size/2, "0,255,120", 30);
+                    showMessage("+1 LIFE", "#00ff88");
+                }
+                powerups.splice(i,1);
+            }
+        }
+
+        for (let i = particles.length-1; i >= 0; i--) {
+            particles[i].update();
+            if (particles[i].life <= 0) particles.splice(i,1);
+        }
+
+        draw();
+        requestAnimationFrame(update);
+    }
+
+    function draw() {
+        ctx.fillStyle = 'rgba(5,5,5,0.4)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = "#ffffff";
+        stars.forEach(s => ctx.fillRect(s.x, s.y, s.size, s.size));
+
+        ctx.shadowBlur = 30; ctx.shadowColor = "#00ffff";
+        ctx.fillStyle = "#00ffff";
+        ctx.beginPath();
+        ctx.moveTo(player.x + 20, player.y);
+        ctx.lineTo(player.x, player.y + 48);
+        ctx.lineTo(player.x + 40, player.y + 48);
+        ctx.closePath();
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        ctx.shadowBlur = 18; ctx.shadowColor = "#ffff00";
+        ctx.fillStyle = "#ffff00";
+        projectiles.forEach(p => ctx.fillRect(p.x - 3, p.y, 6, 22));
+        ctx.shadowBlur = 0;
+
+        ctx.shadowBlur = 22; ctx.shadowColor = "#ff3366";
+        enemies.forEach(e => {
+            ctx.fillStyle = `rgb(255, ${70 + e.hp*45}, 80)`;
+            ctx.fillRect(e.x, e.y, e.size, e.size);
+        });
+        ctx.shadowBlur = 0;
+
+        ctx.shadowBlur = 20; ctx.shadowColor = "#ff0088";
+        powerups.forEach(p => {
+            ctx.fillStyle = "#ff0088";
+            ctx.fillRect(p.x + 4, p.y + 4, p.size-8, p.size-8);
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 28px Arial";
+            ctx.fillText("♥", p.x + 6, p.y + 29);
+        });
+        ctx.shadowBlur = 0;
+
+        particles.forEach(p => p.draw());
+    }
+
+    requestAnimationFrame(update);
+    createStars();
 </script>
 </body>
 </html>
