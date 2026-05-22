@@ -4,34 +4,55 @@
     <meta charset="UTF-8">
     <title>Hyper Horde Hunter</title>
     <style>
-        body { margin:0; padding:0; background:#050505; color:white; font-family:'Segoe UI',sans-serif; overflow:hidden; display:flex; justify-content:center; align-items:center; height:100vh; }
-        #gameContainer { position:relative; width:680px; height:1080px; overflow:hidden; box-shadow:0 0 60px rgba(0,255,255,0.5); }
-        canvas { display:block; background:#000; }
+        body { 
+            margin: 0; padding: 0; background: #050505; color: white; 
+            font-family: 'Segoe UI', sans-serif; overflow: hidden; 
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh;
+        }
+        #gameContainer {
+            position: relative;
+            width: 480px;
+            height: 890px;
+            overflow: hidden;
+            box-shadow: 0 0 50px rgba(0, 255, 255, 0.5);
+        }
+        canvas { display: block; background: #000; }
 
-        #lobby { position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(5,5,5,0.97); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:100; gap:25px; }
-        h1 { font-size:48px; background:linear-gradient(90deg,#00ffff,#ff00ff); -webkit-background-clip:text; -webkit-text-fill-color:transparent; margin:0; }
-        input { padding:15px 20px; font-size:22px; background:#111; color:#00ffff; border:3px solid #00ffff; border-radius:12px; width:320px; text-align:center; }
-        button { padding:15px 50px; font-size:24px; background:transparent; color:#00ffff; border:3px solid #00ffff; border-radius:50px; cursor:pointer; }
-        button:hover { background:#00ffff; color:#000; }
-        button:disabled { opacity:0.4; cursor:not-allowed; }
+        #lobby { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(5,5,5,0.97); display: flex; flex-direction: column; 
+            align-items: center; justify-content: center; z-index: 100; gap: 20px;
+        }
+        h1 { font-size: 42px; background: linear-gradient(90deg, #00ffff, #ff00ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0; }
+        
+        input { padding: 14px 20px; font-size: 20px; background: #111; color: #00ffff; border: 3px solid #00ffff; border-radius: 12px; width: 280px; text-align: center; }
+        button { padding: 14px 45px; font-size: 23px; background: transparent; color: #00ffff; border: 3px solid #00ffff; border-radius: 50px; cursor: pointer; }
+        button:hover { background: #00ffff; color: #000; }
+        button:disabled { opacity: 0.4; cursor: not-allowed; }
 
-        #levelSelect, #leaderboard { display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(5,5,5,0.97); z-index:200; flex-direction:column; align-items:center; justify-content:center; gap:20px; }
+        #levelSelect, #leaderboard { 
+            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(5,5,5,0.97); z-index: 200; flex-direction: column; 
+            align-items: center; justify-content: center; gap: 20px;
+        }
     </style>
 </head>
 <body>
     <div id="gameContainer">
+        <!-- Главное меню -->
         <div id="lobby">
             <h1>HYPER HORDE HUNTER</h1>
-            <div style="font-size:26px;color:#ff00ff;">HIGHSCORE: <span id="highscoreValue">0</span></div>
+            <div style="font-size:24px;color:#ff00ff;">HIGHSCORE: <span id="highscoreValue">0</span></div>
             <input type="text" id="playerName" placeholder="Enter your nickname" maxlength="12">
             <button id="startBtn" onclick="startGame()" disabled>START GAME</button>
             <button onclick="showLeaderboard()">LEADERBOARD</button>
         </div>
 
-        <!-- Level Select (чит-код idi) -->
+        <!-- Выбор уровня (чит-код idi) -->
         <div id="levelSelect">
             <h2 style="color:#ff00ff;">Select Starting Level</h2>
-            <select id="levelChooser" style="padding:12px;font-size:22px;width:300px;">
+            <select id="levelChooser" style="padding:12px; font-size:20px; width:280px;">
                 <option value="1">Level 1</option>
                 <option value="4">Level 4 — Boss 1</option>
                 <option value="9">Level 9 — Boss 2</option>
@@ -45,17 +66,17 @@
         <div id="leaderboard">
             <h2 style="color:#ff00ff;">🏆 LEADERBOARD</h2>
             <table id="leaderTable"></table>
-            <button onclick="hideLeaderboard()" style="margin-top:20px;padding:14px 50px;">CLOSE</button>
+            <button onclick="hideLeaderboard()" style="margin-top:20px;">CLOSE</button>
         </div>
 
-        <div id="ui" style="position:absolute;top:20px;left:20px;z-index:10;font-size:22px;">
+        <div id="ui" style="position:absolute; top:15px; left:15px; z-index:10; font-size:19px;">
             Score: <span id="score">0</span><br>
             Level: <span id="level">1</span><br>
             Lives: <span id="hp">|||||</span>
         </div>
         <div id="msg"></div>
         
-        <canvas id="gameCanvas" width="680" height="1080"></canvas>
+        <canvas id="gameCanvas" width="480" height="890"></canvas>
     </div>
 
 <script>
@@ -66,10 +87,10 @@
     let gameRunning = false;
     let lastSpawn = 0, lastShot = 0;
     let enemySpeed = 3.8, spawnRate = 550, fireRate = 140;
-    let weaponLevel = 1, playerSpeed = 9, bossesDefeated = 0;
+    let weaponLevel = 1, playerSpeed = 8, bossesDefeated = 0;
     let currentPlayerName = "";
 
-    const player = { x: 320, y: 950, w: 45, h: 55 };
+    const player = { x: 220, y: 780, w: 40, h: 50 };
     let projectiles = [], enemies = [], particles = [], powerups = [];
     let boss = null;
     const keys = {};
@@ -148,6 +169,13 @@
         setTimeout(() => msg.style.display = 'none', 1600);
     }
 
+    function createStars() {
+        stars = [];
+        for(let i = 0; i < 120; i++) {
+            stars.push({x: Math.random()*480, y: Math.random()*890, size: Math.random()*3 + 0.8, speed: Math.random()*1.2 + 0.6});
+        }
+    }
+
     function spawnEnemy() {
         if (boss) return;
         const size = 28 + Math.random() * 28;
@@ -158,21 +186,11 @@
         powerups.push({ x: Math.random() * (canvas.width - 40), y: -40, size: 34, speed: 2.3 });
     }
 
-    function spawnBoss() {
-        if (boss) return;
-        let hpAmount = bossesDefeated === 0 ? 85 : bossesDefeated === 1 ? 160 : 380;
-        let bulletCount = bossesDefeated === 0 ? 3 : bossesDefeated === 1 ? 4 : 5;
-        const isFinal = bossesDefeated >= 2;
-        const baseY = canvas.height * 0.16;
-        boss = {x: canvas.width/2-80, y: baseY, baseY: baseY, w:160, h:130, hp: hpAmount, maxHp: hpAmount, speed:1.6, direction:1, bulletCount: bulletCount, isFinal: isFinal};
-        showMessage(isFinal ? "FINAL BOSS!!!" : "BOSS INCOMING!", "#ff0066");
-    }
-
     function shoot() {
         const now = Date.now();
         if (now - lastShot < fireRate) return;
         lastShot = now;
-        const px = player.x + 22;
+        const px = player.x + 20;
         projectiles.push({x: px, y: player.y, vx: 0, vy: -18});
         if (weaponLevel >= 2) {
             projectiles.push({x: px-14, y: player.y+6, vx: -4.5, vy: -16});
@@ -205,7 +223,7 @@
         document.getElementById('score').innerText = score;
         document.getElementById('level').innerText = level;
         document.getElementById('hp').innerText = "|||||";
-        player.x = 320;
+        player.x = 220;
 
         gameRunning = true;
         document.getElementById('lobby').style.display = 'none';
@@ -227,6 +245,7 @@
     function update() {
         if (!gameRunning) return requestAnimationFrame(update);
 
+        // Ограничение игрока по краям
         if (keys['ArrowLeft'] && player.x > 0) player.x -= playerSpeed;
         if (keys['ArrowRight'] && player.x < canvas.width - player.w) player.x += playerSpeed;
         if (keys['Space']) shoot();
@@ -254,6 +273,7 @@
         for (let i = enemies.length-1; i >= 0; i--) {
             const e = enemies[i];
             e.y += e.speed;
+
             if (e.y > canvas.height - 30) {
                 hp = Math.max(0, hp - 1);
                 document.getElementById('hp').innerText = "|".repeat(hp);
@@ -262,8 +282,33 @@
                 if (hp <= 0) endGame();
                 continue;
             }
-            // collision with player and projectiles...
-            // (полная версия)
+
+            // Столкновение с игроком
+            if (e.x < player.x + player.w && e.x + e.size > player.x && 
+                e.y < player.y + player.h && e.y + e.size > player.y) {
+                hp = Math.max(0, hp - 1);
+                document.getElementById('hp').innerText = "|".repeat(hp);
+                createExplosion(e.x + e.size/2, e.y + e.size/2, "255,50,50", 30);
+                enemies.splice(i,1);
+                if (hp <= 0) endGame();
+                continue;
+            }
+
+            // Попадание пуль
+            for (let j = projectiles.length-1; j >= 0; j--) {
+                const p = projectiles[j];
+                if (p.x > e.x && p.x < e.x + e.size && p.y > e.y && p.y < e.y + e.size) {
+                    e.hp--;
+                    projectiles.splice(j,1);
+                    if (e.hp <= 0) {
+                        createExplosion(e.x + e.size/2, e.y + e.size/2, "255,140,40", 40);
+                        enemies.splice(i,1);
+                        score += 1;
+                        document.getElementById('score').innerText = score;
+                    }
+                    break;
+                }
+            }
         }
 
         for (let i = powerups.length-1; i >= 0; i--) {
@@ -300,9 +345,9 @@
         ctx.shadowBlur = 30; ctx.shadowColor = "#00ffff";
         ctx.fillStyle = "#00ffff";
         ctx.beginPath();
-        ctx.moveTo(player.x + 22, player.y);
-        ctx.lineTo(player.x, player.y + 50);
-        ctx.lineTo(player.x + 45, player.y + 50);
+        ctx.moveTo(player.x + 20, player.y);
+        ctx.lineTo(player.x, player.y + 48);
+        ctx.lineTo(player.x + 40, player.y + 48);
         ctx.closePath();
         ctx.fill();
         ctx.shadowBlur = 0;
@@ -330,6 +375,12 @@
         ctx.shadowBlur = 0;
 
         particles.forEach(p => p.draw());
+    }
+
+    function showMessage(text, color = "#00ffff") {
+        const msg = document.getElementById('msg');
+        msg.style.color = color; msg.innerHTML = text; msg.style.display = 'block';
+        setTimeout(() => msg.style.display = 'none', 1600);
     }
 
     requestAnimationFrame(update);
