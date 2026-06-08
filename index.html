@@ -17,7 +17,6 @@
         }
         canvas { display:block; background:#000; }
 
-        /* ==================== СУПЕР КРАСИВОЕ МЕНЮ ==================== */
         #lobby, #levelSelect, #leaderboard { 
             position:absolute; top:0; left:0; width:100%; height:100%; 
             background:linear-gradient(135deg, #0f0022, #3a0055, #1a0033); 
@@ -103,6 +102,7 @@
     let weaponLevel = 2, playerSpeed = 9;
     let bossesDefeated = 0;
     let cheatInput = "";
+    let currentPlayerName = "Player";
 
     const player = { x: 220, y: 780, w: 40, h: 50 };
     let projectiles = [], enemies = [], particles = [], powerups = [], boss = null;
@@ -118,7 +118,9 @@
 
     function updateLeaderboardTable() {
         let html = `<tr><th>#</th><th>Player</th><th>Score</th></tr>`;
-        leaderboard.slice(0,10).forEach((entry, i) => html += `<tr><td>${i+1}</td><td>${entry.name}</td><td>${entry.score}</td></tr>`);
+        leaderboard.slice(0,10).forEach((entry, i) => {
+            html += `<tr><td>${i+1}</td><td>${entry.name}</td><td>${entry.score}</td></tr>`;
+        });
         document.getElementById('leaderTable').innerHTML = html || "<tr><td colspan='3'>No records yet</td></tr>";
     }
 
@@ -184,6 +186,7 @@
     }
 
     function startGame() {
+        currentPlayerName = document.getElementById('playerName').value.trim() || "Player";
         level = 1;
         score = 0;
         hp = 5;
@@ -199,7 +202,7 @@
     function endGame() {
         gameRunning = false;
         if (score > 0) {
-            leaderboard.push({name: "Player", score: score});
+            leaderboard.push({name: currentPlayerName, score: score});
             leaderboard.sort((a,b) => b.score - a.score);
             saveLeaderboard();
         }
@@ -214,6 +217,8 @@
 
     function showLevelSelect() { document.getElementById('levelSelect').style.display = 'flex'; }
     function hideLevelSelect() { document.getElementById('levelSelect').style.display = 'none'; }
+
+    // ... (весь update и draw остаются без изменений) ...
 
     function update() {
         if (!gameRunning) return requestAnimationFrame(update);
