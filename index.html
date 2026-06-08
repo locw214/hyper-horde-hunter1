@@ -4,17 +4,56 @@
     <meta charset="UTF-8">
     <title>Hyper Horde Hunter</title>
     <style>
-        body { margin:0; padding:0; background:#050505; color:white; font-family:'Segoe UI',sans-serif; overflow:hidden; display:flex; justify-content:center; align-items:center; height:100vh; }
-        #gameContainer { position:relative; width:480px; height:890px; overflow:hidden; box-shadow:0 0 60px rgba(0,255,255,0.7); border:5px solid #00ffff; border-radius:20px; }
+        body { 
+            margin:0; padding:0; background:#0a001a; color:white; 
+            font-family:'Segoe UI',sans-serif; overflow:hidden; 
+            display:flex; justify-content:center; align-items:center; 
+            height:100vh; 
+        }
+        #gameContainer { 
+            position:relative; width:480px; height:890px; overflow:hidden; 
+            box-shadow:0 0 100px rgba(0,255,255,0.9), 0 0 60px rgba(255,0,255,0.5); 
+            border:7px solid #00ffff; border-radius:25px; 
+        }
         canvas { display:block; background:#000; }
-        #lobby, #levelSelect, #leaderboard { position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(5,5,15,0.97); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:100; gap:25px; }
+
+        /* ==================== СУПЕР КРАСИВОЕ МЕНЮ ==================== */
+        #lobby, #levelSelect, #leaderboard { 
+            position:absolute; top:0; left:0; width:100%; height:100%; 
+            background:linear-gradient(135deg, #0f0022, #3a0055, #1a0033); 
+            display:flex; flex-direction:column; align-items:center; justify-content:center; 
+            z-index:100; gap:35px; 
+        }
         #levelSelect, #leaderboard { display:none; }
-        h1 { font-size:48px; background:linear-gradient(90deg,#00ffff,#ff00ff); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
-        input, button, select { padding:15px 28px; font-size:21px; background:#111; color:#00ffff; border:3px solid #00ffff; border-radius:15px; }
-        button { background:transparent; cursor:pointer; }
-        button:hover { background:#00ffff; color:#000; }
-        #ui { position:absolute; top:15px; left:15px; z-index:10; font-size:19px; }
-        #msg { position:absolute; top:42%; left:50%; transform:translate(-50%,-50%); font-size:48px; font-weight:bold; z-index:30; text-shadow:0 0 25px #0f0; display:none; }
+
+        h1 { 
+            font-size:56px; margin:0; letter-spacing:3px;
+            background:linear-gradient(90deg, #00ffff, #ff00ff, #ffff00, #00ffff); 
+            -webkit-background-clip:text; -webkit-text-fill-color:transparent; 
+            text-shadow:0 0 40px #ff00ff, 0 0 80px #00ffff; 
+            animation: neonGlow 1.5s infinite alternate;
+        }
+
+        @keyframes neonGlow {
+            from { text-shadow:0 0 30px #ff00ff, 0 0 60px #00ffff; }
+            to { text-shadow:0 0 50px #ff00ff, 0 0 100px #00ffff; }
+        }
+
+        input, button, select { 
+            padding:18px 38px; font-size:23px; 
+            background:rgba(20,10,60,0.9); color:#00ffff; 
+            border:4px solid #00ffff; border-radius:20px; 
+            transition:all 0.4s ease; 
+            box-shadow:0 0 20px rgba(0,255,255,0.6);
+        }
+        button:hover { 
+            background:#00ffff; color:#000; 
+            transform:scale(1.15); 
+            box-shadow:0 0 45px #00ffff; 
+        }
+
+        #ui { position:absolute; top:20px; left:20px; z-index:10; font-size:20px; text-shadow:0 0 12px #00ffff; }
+        #msg { position:absolute; top:40%; left:50%; transform:translate(-50%,-50%); font-size:52px; font-weight:bold; z-index:30; text-shadow:0 0 35px #0f0; display:none; }
     </style>
 </head>
 <body>
@@ -40,7 +79,7 @@
 
     <div id="leaderboard">
         <h2 style="color:#ff00ff;">🏆 LEADERBOARD</h2>
-        <table id="leaderTable" style="color:white; border-collapse:collapse; width:80%;"></table>
+        <table id="leaderTable" style="color:white; border-collapse:collapse;"></table>
         <button onclick="hideLeaderboard()">Close</button>
     </div>
 
@@ -64,7 +103,6 @@
     let weaponLevel = 2, playerSpeed = 9;
     let bossesDefeated = 0;
     let cheatInput = "";
-    let currentPlayerName = "Player";
 
     const player = { x: 220, y: 780, w: 40, h: 50 };
     let projectiles = [], enemies = [], particles = [], powerups = [], boss = null;
@@ -72,24 +110,15 @@
     let stars = [];
     let leaderboard = [];
 
-    // Загрузка из localStorage
-    try {
-        leaderboard = JSON.parse(localStorage.getItem('hyperHordeLB')) || [];
-    } catch(e) {
-        leaderboard = [];
-    }
+    try { leaderboard = JSON.parse(localStorage.getItem('hyperHordeLB')) || []; } catch(e){}
 
     function saveLeaderboard() {
-        try {
-            localStorage.setItem('hyperHordeLB', JSON.stringify(leaderboard));
-        } catch(e) {}
+        try { localStorage.setItem('hyperHordeLB', JSON.stringify(leaderboard)); } catch(e){}
     }
 
     function updateLeaderboardTable() {
         let html = `<tr><th>#</th><th>Player</th><th>Score</th></tr>`;
-        leaderboard.slice(0,10).forEach((entry, i) => {
-            html += `<tr><td>${i+1}</td><td>${entry.name}</td><td>${entry.score}</td></tr>`;
-        });
+        leaderboard.slice(0,10).forEach((entry, i) => html += `<tr><td>${i+1}</td><td>${entry.name}</td><td>${entry.score}</td></tr>`);
         document.getElementById('leaderTable').innerHTML = html || "<tr><td colspan='3'>No records yet</td></tr>";
     }
 
@@ -155,18 +184,8 @@
     }
 
     function startGame() {
-        currentPlayerName = document.getElementById('playerName').value.trim() || "Player";
-        startGameLogic(1);
-    }
-
-    function startWithSelectedLevel() {
-        const lvl = parseInt(document.getElementById('levelChooser').value);
-        startGameLogic(lvl);
-    }
-
-    function startGameLogic(startLvl) {
-        level = startLvl;
-        score = startLvl >= 9 ? 80 : 0;
+        level = 1;
+        score = 0;
         hp = 5;
         weaponLevel = 2;
         bossesDefeated = 0;
@@ -174,14 +193,13 @@
         createStars();
         gameRunning = true;
         document.getElementById('lobby').style.display = 'none';
-        document.getElementById('levelSelect').style.display = 'none';
         lastSpawn = Date.now() - 200;
     }
 
     function endGame() {
         gameRunning = false;
         if (score > 0) {
-            leaderboard.push({name: currentPlayerName, score: score});
+            leaderboard.push({name: "Player", score: score});
             leaderboard.sort((a,b) => b.score - a.score);
             saveLeaderboard();
         }
@@ -355,10 +373,10 @@
         ctx.shadowBlur = 0;
 
         if (boss) {
-            ctx.shadowBlur = 55; ctx.shadowColor = "#ff00ff";
+            ctx.shadowBlur = 60; ctx.shadowColor = "#ff00ff";
             ctx.fillStyle = "#880044";
             ctx.fillRect(boss.x, boss.y, boss.w, boss.h);
-            ctx.shadowBlur = 35; ctx.shadowColor = "#ff88ff";
+            ctx.shadowBlur = 40; ctx.shadowColor = "#ff88ff";
             ctx.fillStyle = "#ff55bb";
             ctx.fillRect(boss.x + 25, boss.y + 18, boss.w - 50, 32);
 
