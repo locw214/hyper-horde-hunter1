@@ -101,8 +101,7 @@
         try { localStorage.setItem('hyperHordeLB', JSON.stringify(leaderboard)); } catch(e){}
     }
 
-    function updateLeaderboardTable(filtered = null) {
-        let data = filtered || leaderboard;
+    function updateLeaderboardTable(data) {
         let html = `<tr><th>#</th><th>Player</th><th>Score</th><th>Date</th></tr>`;
         data.slice(0, 15).forEach((entry, i) => {
             const date = new Date(entry.date).toLocaleString('ru-RU', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
@@ -113,13 +112,18 @@
 
     function showAllLeaderboard() {
         document.getElementById('leaderTitle').innerText = "🏆 LEADERBOARD";
-        updateLeaderboardTable();
+        const sorted = [...leaderboard].sort((a,b) => b.score - a.score);
+        updateLeaderboardTable(sorted);
         document.getElementById('leaderboard').style.display = 'flex';
     }
 
     function showMyRecords() {
-        const myRecords = leaderboard.filter(entry => entry.name === currentPlayerName);
-        document.getElementById('leaderTitle').innerText = "📊 MY RECORDS";
+        const myRecords = leaderboard
+            .filter(entry => entry.name === currentPlayerName)
+            .sort((a,b) => b.score - a.score)   // сортируем по убыванию
+            .slice(0, 3);                       // только 3 лучших
+
+        document.getElementById('leaderTitle').innerText = "📊 MY BEST RECORDS (Top 3)";
         updateLeaderboardTable(myRecords);
         document.getElementById('leaderboard').style.display = 'flex';
     }
@@ -128,6 +132,7 @@
         document.getElementById('leaderboard').style.display = 'none';
     }
 
+    // ==================== ИГРА (остальной код без изменений) ====================
     function createStars() {
         stars = [];
         for(let i = 0; i < 150; i++) stars.push({x: Math.random()*480, y: Math.random()*890, size: Math.random()*3 + 0.8, speed: Math.random()*1.5 + 0.7});
@@ -139,15 +144,12 @@
         draw() { ctx.fillStyle = `rgba(${this.color},${this.life})`; ctx.fillRect(this.x, this.y, this.size, this.size); }
     }
 
-    // === ИСПРАВЛЕНИЕ ОШИБКИ ===
     function createExplosion(x, y, color, count = 35) {
-        count = Math.max(8, Math.floor(Math.abs(count) || 35));  // Защита от отрицательных и нулевых значений
+        count = Math.max(8, Math.floor(Math.abs(count) || 35));
         for(let i = 0; i < count; i++) particles.push(new Particle(x, y, color));
     }
 
-    function getEnemyHP() {
-        return 2 + Math.floor((level - 1) / 5);
-    }
+    function getEnemyHP() { return 2 + Math.floor((level - 1) / 5); }
 
     function spawnEnemy() {
         if (boss) return;
