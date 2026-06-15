@@ -20,7 +20,17 @@
         @keyframes neonGlow { from {text-shadow:0 0 30px #ff00ff;} to {text-shadow:0 0 60px #00ffff, 0 0 100px #ff00ff;} }
 
         input, button, select { padding:18px 38px; font-size:23px; background:rgba(20,10,60,0.9); color:#00ffff; border:4px solid #00ffff; border-radius:20px; transition:0.4s; }
-        button:hover { background:#00ffff; color:#000; transform:scale(1.15); }
+        button:hover { background:#00ffff; color:#000; transform:scale(1.12); }
+
+        #myRecordBtn {
+            position: absolute; top: 20px; right: 20px; 
+            padding: 8px 18px; font-size: 16px; 
+            background: rgba(0,255,255,0.15); border: 2px solid #00ffff;
+        }
+
+        table { border-collapse:collapse; width:85%; color:white; }
+        th, td { padding:12px; text-align:center; border-bottom:1px solid #00ffff44; }
+        th { color:#00ffff; }
 
         #ui { position:absolute; top:20px; left:20px; z-index:10; font-size:20px; }
         #msg { position:absolute; top:40%; left:50%; transform:translate(-50%,-50%); font-size:52px; font-weight:bold; z-index:30; text-shadow:0 0 35px #0f0; display:none; }
@@ -32,7 +42,8 @@
         <h1>HYPER HORDE HUNTER</h1>
         <input type="text" id="playerName" placeholder="Enter nickname" maxlength="12">
         <button id="startBtn" onclick="startGame()" disabled>START GAME</button>
-        <button onclick="showLeaderboard()">LEADERBOARD</button>
+        <button onclick="showAllLeaderboard()">LEADERBOARD</button>
+        <button id="myRecordBtn" onclick="showMyRecords()">MY RECORD</button>
     </div>
 
     <div id="levelSelect">
@@ -49,8 +60,8 @@
     </div>
 
     <div id="leaderboard">
-        <h2 style="color:#ff00ff;">🏆 LEADERBOARD</h2>
-        <table id="leaderTable" style="color:white; border-collapse:collapse; width:85%;"></table>
+        <h2 id="leaderTitle" style="color:#ff00ff;">🏆 LEADERBOARD</h2>
+        <table id="leaderTable"></table>
         <button onclick="hideLeaderboard()">Close</button>
     </div>
 
@@ -82,20 +93,40 @@
     let stars = [];
     let leaderboard = [];
 
-    try { leaderboard = JSON.parse(localStorage.getItem('hyperHordeLB')) || []; } catch(e){}
+    try { 
+        leaderboard = JSON.parse(localStorage.getItem('hyperHordeLB')) || []; 
+    } catch(e){}
 
     function saveLeaderboard() {
         try { localStorage.setItem('hyperHordeLB', JSON.stringify(leaderboard)); } catch(e){}
     }
 
-    function updateLeaderboardTable() {
-        let html = `<tr><th>#</th><th>Player</th><th>Score</th></tr>`;
-        leaderboard.slice(0,10).forEach((entry, i) => html += `<tr><td>${i+1}</td><td>${entry.name}</td><td>${entry.score}</td></tr>`);
-        document.getElementById('leaderTable').innerHTML = html || "<tr><td colspan='3'>No records yet</td></tr>";
+    function updateLeaderboardTable(filtered = null) {
+        let data = filtered || leaderboard;
+        let html = `<tr><th>#</th><th>Player</th><th>Score</th><th>Date</th></tr>`;
+        data.slice(0, 15).forEach((entry, i) => {
+            const date = new Date(entry.date).toLocaleString('ru-RU', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
+            html += `<tr><td>${i+1}</td><td>${entry.name}</td><td>${entry.score}</td><td>${date}</td></tr>`;
+        });
+        document.getElementById('leaderTable').innerHTML = html || "<tr><td colspan='4'>No records yet</td></tr>";
     }
 
-    function showLeaderboard() { updateLeaderboardTable(); document.getElementById('leaderboard').style.display = 'flex'; }
-    function hideLeaderboard() { document.getElementById('leaderboard').style.display = 'none'; }
+    function showAllLeaderboard() {
+        document.getElementById('leaderTitle').innerText = "🏆 LEADERBOARD";
+        updateLeaderboardTable();
+        document.getElementById('leaderboard').style.display = 'flex';
+    }
+
+    function showMyRecords() {
+        const myRecords = leaderboard.filter(entry => entry.name === currentPlayerName);
+        document.getElementById('leaderTitle').innerText = "📊 MY RECORDS";
+        updateLeaderboardTable(myRecords);
+        document.getElementById('leaderboard').style.display = 'flex';
+    }
+
+    function hideLeaderboard() {
+        document.getElementById('leaderboard').style.display = 'none';
+    }
 
     function createStars() {
         stars = [];
@@ -108,8 +139,9 @@
         draw() { ctx.fillStyle = `rgba(${this.color},${this.life})`; ctx.fillRect(this.x, this.y, this.size, this.size); }
     }
 
+    // === ИСПРАВЛЕНИЕ ОШИБКИ ===
     function createExplosion(x, y, color, count = 35) {
-        count = Math.max(8, Math.floor(count));
+        count = Math.max(8, Math.floor(Math.abs(count) || 35));  // Защита от отрицательных и нулевых значений
         for(let i = 0; i < count; i++) particles.push(new Particle(x, y, color));
     }
 
@@ -132,10 +164,8 @@
         if (now - lastShot < fireRate) return;
         lastShot = now;
         const px = player.x + 20;
-
         projectiles.push({x: px-8, y: player.y, vy: -22});
         projectiles.push({x: px+8, y: player.y, vy: -22});
-
         if (weaponLevel >= 2) projectiles.push({x: px, y: player.y-3, vy: -23});
         if (weaponLevel >= 3) {
             projectiles.push({x: px-18, y: player.y+6, vy: -21});
@@ -154,19 +184,7 @@
         let bullets = t === 0 ? 3 : t === 1 ? 4 : 5;
         let speed = t === 2 ? 4.7 : t === 1 ? 4.1 : 3.5;
         let w = t === 2 ? 195 : t === 1 ? 182 : 170;
-
-        boss = { 
-            x: 115, 
-            y: 65, 
-            w: w, 
-            h: 92, 
-            hp: hp, 
-            maxHp: hp, 
-            speed: speed, 
-            changeTimer: Date.now(), 
-            bullets: bullets, 
-            type: t 
-        };
+        boss = { x: 115, y: 65, w: w, h: 92, hp: hp, maxHp: hp, speed: speed, changeTimer: Date.now(), bullets: bullets, type: t };
     }
 
     function startGame() {
@@ -181,15 +199,10 @@
     }
 
     function resetGame(startLevel) {
-        level = startLevel;
-        score = startLevel * 8;
-        hp = 5;
+        level = startLevel; score = startLevel * 8; hp = 5;
         weaponLevel = startLevel >= 160 ? 4 : startLevel >= 90 ? 3 : startLevel >= 30 ? 2 : 1;
         bossesDefeated = startLevel >= 14 ? 2 : startLevel >= 12 ? 1 : 0;
-        enemySpeed = 4.1;
-        spawnRate = 520;
-        fireRate = 135;
-
+        enemySpeed = 4.1; spawnRate = 520; fireRate = 135;
         projectiles = []; enemies = []; particles = []; powerups = []; boss = null;
         document.getElementById('level').innerText = level;
         document.getElementById('score').innerText = score;
@@ -204,7 +217,7 @@
     function endGame() {
         gameRunning = false;
         if (score > 0) {
-            leaderboard.push({name: currentPlayerName, score: score});
+            leaderboard.push({ name: currentPlayerName, score: score, date: Date.now() });
             leaderboard.sort((a,b) => b.score - a.score);
             saveLeaderboard();
         }
@@ -242,7 +255,6 @@
         if (score >= 90 && weaponLevel === 2) { weaponLevel = 3; showMessage("WEAPON LEVEL 3"); }
         if (score >= 160 && weaponLevel === 3) { weaponLevel = 4; showMessage("MAX WEAPON!"); }
 
-        // === УЛУЧШЕННАЯ ЛОГИКА СПАВНА БОССОВ ===
         if (!boss) {
             if (score >= 180 && bossesDefeated < 2) spawnBoss();
             else if (score >= 110 && bossesDefeated < 1) spawnBoss();
@@ -261,8 +273,6 @@
             if (boss.x < 30 || boss.x > canvas.width - boss.w - 30) boss.speed *= -1;
         }
 
-        // Projectiles, Enemies, Boss attack, Powerups, Particles (стандартная логика)
-
         for (let i = projectiles.length-1; i >= 0; i--) {
             projectiles[i].y += projectiles[i].vy || 7;
             if (projectiles[i].y < -30 || projectiles[i].y > canvas.height + 30) projectiles.splice(i,1);
@@ -271,15 +281,14 @@
         for (let i = enemies.length-1; i >= 0; i--) {
             let e = enemies[i];
             e.y += e.speed;
-            if (e.y > canvas.height) { 
-                hp--; 
-                document.getElementById('hp').innerText = "|".repeat(hp); 
-                createExplosion(e.x + e.size/2, canvas.height-40, "255,60,60"); 
-                enemies.splice(i,1); 
-                if (hp <= 0) endGame(); 
-                continue; 
+            if (e.y > canvas.height) {
+                hp--;
+                document.getElementById('hp').innerText = "|".repeat(hp);
+                createExplosion(e.x + e.size/2, canvas.height-40, "255,60,60");
+                enemies.splice(i,1);
+                if (hp <= 0) endGame();
+                continue;
             }
-
             for (let j = projectiles.length-1; j >= 0; j--) {
                 let p = projectiles[j];
                 if (!p.isBossBullet && p.x > e.x - 8 && p.x < e.x + e.hitSize && p.y > e.y - 8 && p.y < e.y + e.hitSize) {
@@ -304,7 +313,6 @@
                     projectiles.push({x: bx + offset, y: boss.y + boss.h, vy: 7.2, isBossBullet: true});
                 }
             }
-
             for (let j = projectiles.length-1; j >= 0; j--) {
                 let p = projectiles[j];
                 if (!p.isBossBullet && p.x > boss.x && p.x < boss.x + boss.w && p.y > boss.y && p.y < boss.y + boss.h) {
@@ -322,7 +330,6 @@
             }
         }
 
-        // Boss bullets hit player
         for (let i = projectiles.length-1; i >= 0; i--) {
             let p = projectiles[i];
             if (p.isBossBullet && p.x > player.x - 15 && p.x < player.x + player.w + 15 && p.y > player.y && p.y < player.y + player.h) {
@@ -361,7 +368,6 @@
     function draw() {
         ctx.fillStyle = 'rgba(5,5,5,0.42)';
         ctx.fillRect(0,0,canvas.width,canvas.height);
-
         ctx.fillStyle = "#fff";
         stars.forEach(s => ctx.fillRect(s.x, s.y, s.size, s.size));
 
@@ -411,7 +417,6 @@
             ctx.fillStyle = boss.hp > 70 ? "#00ffaa" : "#ff3333";
             ctx.fillRect(boss.x, boss.y - 35, barW, 18);
         }
-
         particles.forEach(p => p.draw());
     }
 
