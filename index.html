@@ -117,7 +117,7 @@
         document.getElementById('leaderTitle').innerText = "🏆 GLOBAL LEADERBOARD";
         document.getElementById('leaderTable').innerHTML = "<tr><td colspan='4'>Loading...</td></tr>";
         document.getElementById('leaderboard').style.display = 'flex';
-        const data = await fetchGlobalScores(50);
+        const data = await fetchGlobalScores(10);
         updateLeaderboardTable(data);
     }
 
@@ -210,12 +210,14 @@
 
     function startGame() {
         currentPlayerName = document.getElementById('playerName').value.trim() || "Player";
+        localStorage.setItem('hhh_playerName', currentPlayerName);
         resetGame(1);
     }
 
     function startWithSelectedLevel() {
         const lvl = parseInt(document.getElementById('levelChooser').value);
         currentPlayerName = document.getElementById('playerName').value.trim() || "Player";
+        localStorage.setItem('hhh_playerName', currentPlayerName);
         resetGame(lvl);
     }
 
@@ -461,6 +463,13 @@
 
     const nameInput = document.getElementById('playerName');
     const startBtn = document.getElementById('startBtn');
+
+    const savedName = localStorage.getItem('hhh_playerName');
+    if (savedName) {
+        nameInput.value = savedName;
+        startBtn.disabled = false;
+    }
+
     nameInput.addEventListener('input', () => startBtn.disabled = nameInput.value.trim().length < 1);
 
     requestAnimationFrame(update);
