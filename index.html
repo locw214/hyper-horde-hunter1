@@ -8,23 +8,23 @@
         #gameContainer { position:relative; width:480px; height:890px; overflow:hidden; box-shadow:0 0 100px rgba(0,255,255,0.9); border:7px solid #00ffff; border-radius:25px; }
         canvas { display:block; background:#000; }
 
-        #lobby, #levelSelect, #leaderboard { 
-            position:absolute; top:0; left:0; width:100%; height:100%; 
-            background:linear-gradient(135deg, #0f0022, #3a0055); 
-            display:flex; flex-direction:column; align-items:center; justify-content:center; 
-            z-index:100; gap:35px; 
+        #lobby, #levelSelect, #leaderboard {
+            position:absolute; top:0; left:0; width:100%; height:100%;
+            background:linear-gradient(135deg, #0f0022, #3a0055);
+            display:flex; flex-direction:column; align-items:center; justify-content:center;
+            z-index:100; gap:35px;
         }
         #levelSelect, #leaderboard { display:none; }
 
         h1 { font-size:56px; letter-spacing:4px; background:linear-gradient(90deg, #00ffff, #ff00ff, #ffff00); -webkit-background-clip:text; -webkit-text-fill-color:transparent; animation: neonGlow 1.5s infinite alternate; }
         @keyframes neonGlow { from {text-shadow:0 0 30px #ff00ff;} to {text-shadow:0 0 60px #00ffff, 0 0 100px #ff00ff;} }
 
-        input, button, select { padding:18px 38px; font-size:23px; background:rgba(20,10,60,0.9); color:#00ffff; border:4px solid #00ffff; border-radius:20px; transition:0.4s; }
+        input, button, select { padding:18px 38px; font-size:23px; background:rgba(20,10,60,0.9); color:#00ffff; border:4px solid #00ffff; border-radius:20px; transition:0.4s; cursor:pointer; }
         button:hover { background:#00ffff; color:#000; transform:scale(1.12); }
 
         #myRecordBtn {
-            position: absolute; top: 20px; right: 20px; 
-            padding: 8px 20px; font-size: 15px; 
+            position: absolute; top: 20px; right: 20px;
+            padding: 8px 20px; font-size: 15px;
             background: rgba(0,255,100,0.2); border: 2px solid #00ff88;
         }
 
@@ -42,7 +42,7 @@
         <h1>HYPER HORDE HUNTER</h1>
         <input type="text" id="playerName" placeholder="Enter nickname" maxlength="12">
         <button id="startBtn" onclick="startGame()" disabled>START GAME</button>
-        <button onclick="showGlobalLeaderboard()">LEADERBOARD</button>
+        <button onclick="showGlobalLeaderboard()">🌐 GLOBAL LEADERBOARD</button>
         <button id="myRecordBtn" onclick="showMyRecords()">MY RECORD</button>
     </div>
 
@@ -75,6 +75,68 @@
 </div>
 
 <script>
+    // ============================================================
+    // GLOBAL LEADERBOARD — powered by Replit backend
+    // After you deploy your Replit project, replace this URL with
+    // your permanent *.replit.app address.
+    // ============================================================
+    const API_BASE = "https://0892bccc-7c02-43fe-b5a8-670d0bfea795-00-1qvpz0cqr2i5s.riker.replit.dev/api";
+
+    async function fetchGlobalScores(limit = 50) {
+        try {
+            const res = await fetch(`${API_BASE}/scores?limit=${limit}`);
+            if (!res.ok) throw new Error();
+            return await res.json();
+        } catch(e) { return []; }
+    }
+
+    async function submitScore(name, score) {
+        try {
+            await fetch(`${API_BASE}/scores`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name, score }),
+            });
+        } catch(e) {}
+    }
+
+    function updateLeaderboardTable(data) {
+        if (!data || data.length === 0) {
+            document.getElementById('leaderTable').innerHTML = "<tr><td colspan='4'>No records yet</td></tr>";
+            return;
+        }
+        let html = `<tr><th>#</th><th>Player</th><th>Score</th><th>Date</th></tr>`;
+        data.forEach((entry, i) => {
+            const date = new Date(entry.createdAt).toLocaleString('ru-RU', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
+            html += `<tr><td>${i+1}</td><td>${entry.name}</td><td>${entry.score}</td><td>${date}</td></tr>`;
+        });
+        document.getElementById('leaderTable').innerHTML = html;
+    }
+
+    async function showGlobalLeaderboard() {
+        document.getElementById('leaderTitle').innerText = "🏆 GLOBAL LEADERBOARD";
+        document.getElementById('leaderTable').innerHTML = "<tr><td colspan='4'>Loading...</td></tr>";
+        document.getElementById('leaderboard').style.display = 'flex';
+        const data = await fetchGlobalScores(50);
+        updateLeaderboardTable(data);
+    }
+
+    async function showMyRecords() {
+        document.getElementById('leaderTitle').innerText = "📊 MY BEST RECORDS (Top 3)";
+        document.getElementById('leaderTable').innerHTML = "<tr><td colspan='4'>Loading...</td></tr>";
+        document.getElementById('leaderboard').style.display = 'flex';
+        const all = await fetchGlobalScores(100);
+        const mine = all.filter(e => e.name === currentPlayerName).slice(0, 3);
+        updateLeaderboardTable(mine);
+    }
+
+    function hideLeaderboard() {
+        document.getElementById('leaderboard').style.display = 'none';
+    }
+
+    // ============================================================
+    // GAME ENGINE
+    // ============================================================
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
 
@@ -91,49 +153,7 @@
     let projectiles = [], enemies = [], particles = [], powerups = [], boss = null;
     const keys = {};
     let stars = [];
-    let leaderboard = [];
 
-    try { 
-        leaderboard = JSON.parse(localStorage.getItem('hyperHordeLB')) || []; 
-    } catch(e){}
-
-    function saveLeaderboard() {
-        try { localStorage.setItem('hyperHordeLB', JSON.stringify(leaderboard)); } catch(e){}
-    }
-
-    function updateLeaderboardTable(data) {
-        let html = `<tr><th>#</th><th>Player</th><th>Score</th><th>Date</th></tr>`;
-        data.forEach((entry, i) => {
-            const date = new Date(entry.date).toLocaleString('ru-RU', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
-            html += `<tr><td>${i+1}</td><td>${entry.name}</td><td>${entry.score}</td><td>${date}</td></tr>`;
-        });
-        document.getElementById('leaderTable').innerHTML = html || "<tr><td colspan='4'>No records yet</td></tr>";
-    }
-
-    // ==================== ГЛОБАЛЬНЫЙ LEADERBOARD ====================
-    function showGlobalLeaderboard() {
-        document.getElementById('leaderTitle').innerText = "🏆 GLOBAL LEADERBOARD";
-        const sorted = leaderboard.slice().sort((a, b) => b.score - a.score);
-        updateLeaderboardTable(sorted);
-        document.getElementById('leaderboard').style.display = 'flex';
-    }
-
-    // ==================== ТОЛЬКО МОИ ====================
-    function showMyRecords() {
-        let my = leaderboard.filter(entry => entry.name === currentPlayerName);
-        my.sort((a, b) => b.score - a.score);
-        my = my.slice(0, 3);
-
-        document.getElementById('leaderTitle').innerText = "📊 MY BEST RECORDS (Top 3)";
-        updateLeaderboardTable(my);
-        document.getElementById('leaderboard').style.display = 'flex';
-    }
-
-    function hideLeaderboard() {
-        document.getElementById('leaderboard').style.display = 'none';
-    }
-
-    // ==================== ИГРА (остальное без изменений) ====================
     function createStars() {
         stars = [];
         for(let i = 0; i < 150; i++) stars.push({x: Math.random()*480, y: Math.random()*890, size: Math.random()*3 + 0.8, speed: Math.random()*1.5 + 0.7});
@@ -181,11 +201,11 @@
     function spawnBoss() {
         if (boss) return;
         let t = bossesDefeated;
-        let hp = t === 0 ? 100 : t === 1 ? 160 : 240;
+        let bossHp = t === 0 ? 100 : t === 1 ? 160 : 240;
         let bullets = t === 0 ? 3 : t === 1 ? 4 : 5;
         let speed = t === 2 ? 4.7 : t === 1 ? 4.1 : 3.5;
         let w = t === 2 ? 195 : t === 1 ? 182 : 170;
-        boss = { x: 115, y: 65, w: w, h: 92, hp: hp, maxHp: hp, speed: speed, changeTimer: Date.now(), bullets: bullets, type: t };
+        boss = { x: 115, y: 65, w: w, h: 92, hp: bossHp, maxHp: bossHp, speed: speed, changeTimer: Date.now(), bullets: bullets, type: t };
     }
 
     function startGame() {
@@ -215,12 +235,10 @@
         lastSpawn = Date.now() - 300;
     }
 
-    function endGame() {
+    async function endGame() {
         gameRunning = false;
         if (score > 0) {
-            leaderboard.push({ name: currentPlayerName, score: score, date: Date.now() });
-            leaderboard.sort((a,b) => b.score - a.score);
-            saveLeaderboard();
+            await submitScore(currentPlayerName, score);
         }
         setTimeout(() => document.getElementById('lobby').style.display = 'flex', 800);
     }
@@ -274,7 +292,6 @@
             if (boss.x < 30 || boss.x > canvas.width - boss.w - 30) boss.speed *= -1;
         }
 
-        // projectiles, enemies, boss logic (сокращено для экономии места, но полностью рабочее)
         for (let i = projectiles.length-1; i >= 0; i--) {
             projectiles[i].y += projectiles[i].vy || 7;
             if (projectiles[i].y < -30 || projectiles[i].y > canvas.height + 30) projectiles.splice(i,1);
@@ -332,7 +349,6 @@
             }
         }
 
-        // Boss bullets + powerups + particles (оставлено как было)
         for (let i = projectiles.length-1; i >= 0; i--) {
             let p = projectiles[i];
             if (p.isBossBullet && p.x > player.x - 15 && p.x < player.x + player.w + 15 && p.y > player.y && p.y < player.y + player.h) {
@@ -385,7 +401,12 @@
 
         ctx.shadowBlur = 20; ctx.shadowColor = "#ffff00";
         ctx.fillStyle = "#ffff00";
-        projectiles.forEach(p => ctx.fillRect(p.x-3, p.y, 6, 26));
+        projectiles.forEach(p => { if (!p.isBossBullet) ctx.fillRect(p.x-3, p.y, 6, 26); });
+        ctx.shadowBlur = 0;
+
+        ctx.shadowBlur = 20; ctx.shadowColor = "#ff4400";
+        ctx.fillStyle = "#ff4400";
+        projectiles.forEach(p => { if (p.isBossBullet) ctx.fillRect(p.x-4, p.y, 8, 20); });
         ctx.shadowBlur = 0;
 
         ctx.shadowBlur = 24; ctx.shadowColor = "#ff3366";
@@ -419,6 +440,7 @@
             ctx.fillRect(boss.x, boss.y - 35, boss.w, 18);
             ctx.fillStyle = boss.hp > 70 ? "#00ffaa" : "#ff3333";
             ctx.fillRect(boss.x, boss.y - 35, barW, 18);
+            ctx.shadowBlur = 0;
         }
         particles.forEach(p => p.draw());
     }
