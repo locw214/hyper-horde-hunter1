@@ -146,6 +146,7 @@
     let enemySpeed = 4.1, spawnRate = 520, fireRate = 135;
     let weaponLevel = 1, playerSpeed = 9.5;
     let bossesDefeated = 0;
+    let invincibleUntil = 0;
     let cheatInput = "";
     let currentPlayerName = "Player";
 
@@ -226,6 +227,7 @@
         weaponLevel = startLevel >= 160 ? 4 : startLevel >= 90 ? 3 : startLevel >= 30 ? 2 : 1;
         bossesDefeated = startLevel >= 14 ? 2 : startLevel >= 12 ? 1 : 0;
         enemySpeed = 4.1; spawnRate = 520; fireRate = 135;
+        invincibleUntil = 0;
         projectiles = []; enemies = []; particles = []; powerups = []; boss = null;
         document.getElementById('level').innerText = level;
         document.getElementById('score').innerText = score;
@@ -303,11 +305,13 @@
             let e = enemies[i];
             e.y += e.speed;
             if (e.y > canvas.height) {
-                hp--;
-                document.getElementById('hp').innerText = "|".repeat(hp);
+                if (Date.now() >= invincibleUntil) {
+                    hp--;
+                    document.getElementById('hp').innerText = "|".repeat(hp);
+                    if (hp <= 0) { enemies.splice(i,1); endGame(); continue; }
+                }
                 createExplosion(e.x + e.size/2, canvas.height-40, "255,60,60");
                 enemies.splice(i,1);
-                if (hp <= 0) endGame();
                 continue;
             }
             for (let j = projectiles.length-1; j >= 0; j--) {
@@ -343,6 +347,8 @@
                         score += 60;
                         bossesDefeated++;
                         boss = null;
+                        invincibleUntil = Date.now() + 10000;
+                        showMessage("🛡️ SHIELD 10s!", "#00ffff");
                         document.getElementById('score').innerText = score;
                         enemies.forEach(e => e.hp = getEnemyHP());
                     }
@@ -354,6 +360,10 @@
         for (let i = projectiles.length-1; i >= 0; i--) {
             let p = projectiles[i];
             if (p.isBossBullet && p.x > player.x - 15 && p.x < player.x + player.w + 15 && p.y > player.y && p.y < player.y + player.h) {
+                if (Date.now() < invincibleUntil) {
+                    projectiles.splice(i,1);
+                    continue;
+                }
                 hp--;
                 document.getElementById('hp').innerText = "|".repeat(hp);
                 createExplosion(player.x + 20, player.y + 25, "255,50,50", 35);
@@ -392,14 +402,31 @@
         ctx.fillStyle = "#fff";
         stars.forEach(s => ctx.fillRect(s.x, s.y, s.size, s.size));
 
+        const shieldActive = Date.now() < invincibleUntil;
         ctx.shadowBlur = 35; ctx.shadowColor = "#00ffff";
-        ctx.fillStyle = "#00ffff";
+        ctx.fillStyle = shieldActive ? `rgba(0,255,255,${0.5 + 0.5 * Math.sin(Date.now()/80)})` : "#00ffff";
         ctx.beginPath();
         ctx.moveTo(player.x+20, player.y);
         ctx.lineTo(player.x, player.y+48);
         ctx.lineTo(player.x+40, player.y+48);
         ctx.fill();
         ctx.shadowBlur = 0;
+
+        if (shieldActive) {
+            const secs = Math.ceil((invincibleUntil - Date.now()) / 1000);
+            ctx.shadowBlur = 40; ctx.shadowColor = "#00ffff";
+            ctx.strokeStyle = `rgba(0,255,255,${0.4 + 0.4 * Math.sin(Date.now()/100)})`;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(player.x + 20, player.y + 24, 38, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = "#00ffff";
+            ctx.font = "bold 14px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText(`🛡️ ${secs}s`, player.x + 20, player.y - 8);
+            ctx.textAlign = "left";
+        }
 
         ctx.shadowBlur = 20; ctx.shadowColor = "#ffff00";
         ctx.fillStyle = "#ffff00";
