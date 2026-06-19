@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <title>Hyper Horde Hunter</title>
     <style>
-        body { margin:0; padding:0; background:#0a001a; color:white; font-family:'Segoe UI',sans-serif; overflow:hidden; display:flex; justify-content:center; align-items:center; height:100vh; }
+        body { margin:0; padding:0; background:#0a001a; color:white; font-family:'Segoe UI',sans-serif; overflow:hidden; display:flex; justify-content:center; align-items:flex-start; height:100vh; }
         #gameContainer { position:relative; width:480px; height:890px; overflow:hidden; box-shadow:0 0 100px rgba(0,255,255,0.9); border:7px solid #00ffff; border-radius:25px; transform-origin:top center; transition:transform 0.25s; }
         canvas { display:block; background:#000; }
 
@@ -39,7 +39,9 @@
         button:hover { background:#00ffff; color:#000; transform:scale(1.12); }
 
         #myRecordBtn {
-            background: rgba(0,255,100,0.2); border: 2px solid #00ff88;
+            position: absolute; top: 14px; right: 14px; z-index: 200;
+            padding: 6px 14px; font-size: 13px;
+            background: rgba(0,255,100,0.2); border: 2px solid #00ff88; border-radius:12px;
         }
 
         table { border-collapse:collapse; width:85%; color:white; }
@@ -111,7 +113,8 @@
     <div id="ui">
         Score: <span id="score">0</span><br>
         Level: <span id="level">1</span><br>
-        Lives: <span id="hp">|||||</span>
+        Lives: <span id="hp">|||||</span><br>
+        <span id="autoShootIndicator" style="display:none;color:#ff0;font-size:14px;">🔫 AUTO</span>
     </div>
     <div id="msg"></div>
     <canvas id="gameCanvas" width="480" height="890"></canvas>
@@ -252,13 +255,6 @@
     document.getElementById('commentText').addEventListener('keydown', e => { if (e.key === 'Enter') sendComment(); });
 
     // ==================== SETTINGS / ZOOM ====================
-    function setZoom(scale) {
-        document.getElementById('gameContainer').style.transform = `scale(${scale})`;
-        localStorage.setItem('hhh_zoom', scale);
-        document.querySelectorAll('.zoom-btn').forEach(btn => {
-            btn.classList.toggle('active', parseFloat(btn.textContent) === scale * 100);
-        });
-    }
 
     function showSettings() {
         document.getElementById('settings').style.display = 'flex';
@@ -272,14 +268,28 @@
         document.getElementById('settings').style.display = 'none';
     }
 
+    function applyScale(scale) {
+        const gc = document.getElementById('gameContainer');
+        gc.style.transform = `scale(${scale})`;
+        gc.style.marginTop = Math.max(0, (window.innerHeight - scale * 890) / 2) + 'px';
+    }
+
     function autoFitZoom() {
         const scaleH = window.innerHeight / 890;
         const scaleW = window.innerWidth / 480;
         const scale = Math.min(1, scaleH, scaleW);
-        document.getElementById('gameContainer').style.transform = `scale(${scale})`;
+        applyScale(scale);
         localStorage.setItem('hhh_zoom', scale);
         document.querySelectorAll('.zoom-btn').forEach(btn => {
             btn.classList.toggle('active', parseFloat(btn.textContent) === Math.round(scale * 100));
+        });
+    }
+
+    function setZoom(scale) {
+        applyScale(scale);
+        localStorage.setItem('hhh_zoom', scale);
+        document.querySelectorAll('.zoom-btn').forEach(btn => {
+            btn.classList.toggle('active', parseFloat(btn.textContent) === scale * 100);
         });
     }
 
@@ -290,8 +300,7 @@
         const scaleW = window.innerWidth / 480;
         const maxFit = Math.min(1, scaleH, scaleW);
         const saved = parseFloat(localStorage.getItem('hhh_zoom') || '1');
-        const scale = Math.min(saved, maxFit);
-        document.getElementById('gameContainer').style.transform = `scale(${scale})`;
+        applyScale(Math.min(saved, maxFit));
     })();
 
     // ============================================================
@@ -304,6 +313,7 @@
     let gameRunning = false;
     let lastSpawn = 0, lastShot = 0, lastBossShot = 0;
     let enemySpeed = 3.3, spawnRate = 520, fireRate = 135;
+    let autoShoot = false;
     let weaponLevel = 1, playerSpeed = 9.5;
     let bossesDefeated = 0;
     let invincibleUntil = 0;
@@ -386,7 +396,8 @@
         level = startLevel; score = startLevel * 8; hp = 5;
         weaponLevel = startLevel >= 160 ? 4 : startLevel >= 90 ? 3 : startLevel >= 30 ? 2 : 1;
         bossesDefeated = startLevel >= 14 ? 2 : startLevel >= 12 ? 1 : 0;
-        enemySpeed = 3.3; spawnRate = 520; fireRate = 135;
+        enemySpeed = 3.3; spawnRate = 520; fireRate = 135; autoShoot = false;
+        document.getElementById('autoShootIndicator').style.display = 'none';
         invincibleUntil = 0;
         projectiles = []; enemies = []; particles = []; powerups = []; boss = null;
         document.getElementById('level').innerText = level;
@@ -421,7 +432,7 @@
 
         if (keys['ArrowLeft'] && player.x > 5) player.x -= playerSpeed;
         if (keys['ArrowRight'] && player.x < 435) player.x += playerSpeed;
-        if (keys['Space']) shoot();
+        if (keys['Space'] || autoShoot) shoot();
 
         if (score >= level * 9) {
             level++;
@@ -636,6 +647,11 @@
 
     window.addEventListener('keydown', e => {
         keys[e.code] = true;
+        if (e.code === 'KeyE' && gameRunning) {
+            autoShoot = !autoShoot;
+            document.getElementById('autoShootIndicator').style.display = autoShoot ? 'inline' : 'none';
+            showMessage(autoShoot ? "🔫 AUTO SHOOT ON" : "AUTO SHOOT OFF", autoShoot ? "#ffff00" : "#aaaaaa");
+        }
         if (e.key) {
             cheatInput += e.key.toLowerCase();
             if (cheatInput.length > 15) cheatInput = cheatInput.slice(-15);
