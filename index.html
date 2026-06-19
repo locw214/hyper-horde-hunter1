@@ -8,25 +8,13 @@
         #gameContainer { position:relative; width:480px; height:890px; overflow:hidden; box-shadow:0 0 100px rgba(0,255,255,0.9); border:7px solid #00ffff; border-radius:25px; }
         canvas { display:block; background:#000; }
 
-        #lobby, #levelSelect, #leaderboard, #comments {
+        #lobby, #levelSelect, #leaderboard {
             position:absolute; top:0; left:0; width:100%; height:100%;
             background:linear-gradient(135deg, #0f0022, #3a0055);
             display:flex; flex-direction:column; align-items:center; justify-content:center;
             z-index:100; gap:35px;
         }
-        #levelSelect, #leaderboard, #comments { display:none; }
-
-        #commentsPanel { display:flex; flex-direction:column; width:90%; height:78%; gap:0; }
-        #commentsList { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:10px; padding:10px 4px; scrollbar-width:thin; scrollbar-color:#00ffff33 transparent; }
-        .comment-item { display:flex; gap:10px; align-items:flex-start; }
-        .comment-avatar { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:16px; flex-shrink:0; border:2px solid rgba(0,255,255,0.4); }
-        .comment-body { flex:1; }
-        .comment-name { font-size:13px; color:#00ffff; font-weight:bold; }
-        .comment-text { font-size:15px; color:#eee; margin-top:2px; word-break:break-word; }
-        .comment-time { font-size:11px; color:#ffffff55; margin-top:2px; }
-        #commentInput { display:flex; gap:8px; padding:10px 0 0; border-top:1px solid #00ffff33; margin-top:6px; }
-        #commentInput input { flex:1; padding:10px 14px; font-size:15px; border-radius:12px; border:2px solid #00ffff66; background:rgba(0,0,30,0.8); color:white; }
-        #commentInput button { padding:10px 18px; font-size:15px; border-radius:12px; white-space:nowrap; }
+        #levelSelect, #leaderboard { display:none; }
 
         h1 { font-size:56px; letter-spacing:4px; background:linear-gradient(90deg, #00ffff, #ff00ff, #ffff00); -webkit-background-clip:text; -webkit-text-fill-color:transparent; animation: neonGlow 1.5s infinite alternate; }
         @keyframes neonGlow { from {text-shadow:0 0 30px #ff00ff;} to {text-shadow:0 0 60px #00ffff, 0 0 100px #ff00ff;} }
@@ -56,19 +44,6 @@
         <button id="startBtn" onclick="startGame()" disabled>START GAME</button>
         <button onclick="showGlobalLeaderboard()">🌐 GLOBAL LEADERBOARD</button>
         <button id="myRecordBtn" onclick="showMyRecords()">MY RECORD</button>
-        <button onclick="showComments()" style="background:rgba(255,0,200,0.15);border-color:#ff00cc;">💬 COMMENTS</button>
-    </div>
-
-    <div id="comments">
-        <h2 style="color:#ff00ff;margin:0;">💬 COMMUNITY</h2>
-        <div id="commentsPanel">
-            <div id="commentsList"><div style="color:#ffffff55;text-align:center;margin-top:40px">Loading...</div></div>
-            <div id="commentInput">
-                <input id="commentText" type="text" placeholder="Write a comment..." maxlength="200">
-                <button onclick="sendComment()">Send</button>
-            </div>
-        </div>
-        <button onclick="hideComments()">Close</button>
     </div>
 
     <div id="levelSelect">
@@ -142,7 +117,7 @@
         document.getElementById('leaderTitle').innerText = "🏆 GLOBAL LEADERBOARD";
         document.getElementById('leaderTable').innerHTML = "<tr><td colspan='4'>Loading...</td></tr>";
         document.getElementById('leaderboard').style.display = 'flex';
-        const data = await fetchGlobalScores(10);
+        const data = await fetchGlobalScores(50);
         updateLeaderboardTable(data);
     }
 
@@ -159,74 +134,6 @@
         document.getElementById('leaderboard').style.display = 'none';
     }
 
-    // ==================== COMMENTS ====================
-    const AVATAR_COLORS = ["#ff4466","#ff8800","#ffdd00","#44ff88","#00ddff","#aa44ff","#ff44dd"];
-    function avatarColor(name) { let h = 0; for(let c of name) h = (h*31 + c.charCodeAt(0)) % AVATAR_COLORS.length; return AVATAR_COLORS[h]; }
-    function timeAgo(dateStr) {
-        const s = Math.floor((Date.now() - new Date(dateStr)) / 1000);
-        if (s < 60) return `${s}s ago`;
-        if (s < 3600) return `${Math.floor(s/60)}m ago`;
-        if (s < 86400) return `${Math.floor(s/3600)}h ago`;
-        return `${Math.floor(s/86400)}d ago`;
-    }
-
-    async function fetchComments() {
-        try {
-            const res = await fetch(`${API_BASE}/comments?limit=50`);
-            return await res.json();
-        } catch(e) { return []; }
-    }
-
-    function renderComments(data) {
-        const list = document.getElementById('commentsList');
-        if (!data || data.length === 0) {
-            list.innerHTML = `<div style="color:#ffffff55;text-align:center;margin-top:40px">No comments yet — be first! 🎮</div>`;
-            return;
-        }
-        list.innerHTML = data.map(c => `
-            <div class="comment-item">
-                <div class="comment-avatar" style="background:${avatarColor(c.name)}22;color:${avatarColor(c.name)}">${c.name[0].toUpperCase()}</div>
-                <div class="comment-body">
-                    <div class="comment-name">${c.name}</div>
-                    <div class="comment-text">${c.message.replace(/</g,'&lt;')}</div>
-                    <div class="comment-time">${timeAgo(c.createdAt)}</div>
-                </div>
-            </div>`).join('');
-    }
-
-    async function showComments() {
-        document.getElementById('comments').style.display = 'flex';
-        document.getElementById('commentsList').innerHTML = `<div style="color:#ffffff55;text-align:center;margin-top:40px">Loading...</div>`;
-        const data = await fetchComments();
-        renderComments(data);
-    }
-
-    function hideComments() {
-        document.getElementById('comments').style.display = 'none';
-    }
-
-    async function sendComment() {
-        const input = document.getElementById('commentText');
-        const msg = input.value.trim();
-        if (!msg) return;
-        const name = currentPlayerName !== "Player" ? currentPlayerName : (document.getElementById('playerName').value.trim() || "Anonymous");
-        input.value = '';
-        input.disabled = true;
-        try {
-            await fetch(`${API_BASE}/comments`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, message: msg }),
-            });
-            const data = await fetchComments();
-            renderComments(data);
-        } catch(e) {}
-        input.disabled = false;
-        input.focus();
-    }
-
-    document.getElementById('commentText').addEventListener('keydown', e => { if (e.key === 'Enter') sendComment(); });
-
     // ============================================================
     // GAME ENGINE
     // ============================================================
@@ -239,7 +146,6 @@
     let enemySpeed = 4.1, spawnRate = 520, fireRate = 135;
     let weaponLevel = 1, playerSpeed = 9.5;
     let bossesDefeated = 0;
-    let invincibleUntil = 0;
     let cheatInput = "";
     let currentPlayerName = "Player";
 
@@ -304,14 +210,12 @@
 
     function startGame() {
         currentPlayerName = document.getElementById('playerName').value.trim() || "Player";
-        localStorage.setItem('hhh_playerName', currentPlayerName);
         resetGame(1);
     }
 
     function startWithSelectedLevel() {
         const lvl = parseInt(document.getElementById('levelChooser').value);
         currentPlayerName = document.getElementById('playerName').value.trim() || "Player";
-        localStorage.setItem('hhh_playerName', currentPlayerName);
         resetGame(lvl);
     }
 
@@ -320,7 +224,6 @@
         weaponLevel = startLevel >= 160 ? 4 : startLevel >= 90 ? 3 : startLevel >= 30 ? 2 : 1;
         bossesDefeated = startLevel >= 14 ? 2 : startLevel >= 12 ? 1 : 0;
         enemySpeed = 4.1; spawnRate = 520; fireRate = 135;
-        invincibleUntil = 0;
         projectiles = []; enemies = []; particles = []; powerups = []; boss = null;
         document.getElementById('level').innerText = level;
         document.getElementById('score').innerText = score;
@@ -398,13 +301,11 @@
             let e = enemies[i];
             e.y += e.speed;
             if (e.y > canvas.height) {
-                if (Date.now() >= invincibleUntil) {
-                    hp--;
-                    document.getElementById('hp').innerText = "|".repeat(hp);
-                    if (hp <= 0) { enemies.splice(i,1); endGame(); continue; }
-                }
+                hp--;
+                document.getElementById('hp').innerText = "|".repeat(hp);
                 createExplosion(e.x + e.size/2, canvas.height-40, "255,60,60");
                 enemies.splice(i,1);
+                if (hp <= 0) endGame();
                 continue;
             }
             for (let j = projectiles.length-1; j >= 0; j--) {
@@ -440,8 +341,6 @@
                         score += 60;
                         bossesDefeated++;
                         boss = null;
-                        invincibleUntil = Date.now() + 10000;
-                        showMessage("🛡️ SHIELD 10s!", "#00ffff");
                         document.getElementById('score').innerText = score;
                         enemies.forEach(e => e.hp = getEnemyHP());
                     }
@@ -453,10 +352,6 @@
         for (let i = projectiles.length-1; i >= 0; i--) {
             let p = projectiles[i];
             if (p.isBossBullet && p.x > player.x - 15 && p.x < player.x + player.w + 15 && p.y > player.y && p.y < player.y + player.h) {
-                if (Date.now() < invincibleUntil) {
-                    projectiles.splice(i,1);
-                    continue;
-                }
                 hp--;
                 document.getElementById('hp').innerText = "|".repeat(hp);
                 createExplosion(player.x + 20, player.y + 25, "255,50,50", 35);
@@ -495,31 +390,14 @@
         ctx.fillStyle = "#fff";
         stars.forEach(s => ctx.fillRect(s.x, s.y, s.size, s.size));
 
-        const shieldActive = Date.now() < invincibleUntil;
         ctx.shadowBlur = 35; ctx.shadowColor = "#00ffff";
-        ctx.fillStyle = shieldActive ? `rgba(0,255,255,${0.5 + 0.5 * Math.sin(Date.now()/80)})` : "#00ffff";
+        ctx.fillStyle = "#00ffff";
         ctx.beginPath();
         ctx.moveTo(player.x+20, player.y);
         ctx.lineTo(player.x, player.y+48);
         ctx.lineTo(player.x+40, player.y+48);
         ctx.fill();
         ctx.shadowBlur = 0;
-
-        if (shieldActive) {
-            const secs = Math.ceil((invincibleUntil - Date.now()) / 1000);
-            ctx.shadowBlur = 40; ctx.shadowColor = "#00ffff";
-            ctx.strokeStyle = `rgba(0,255,255,${0.4 + 0.4 * Math.sin(Date.now()/100)})`;
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.arc(player.x + 20, player.y + 24, 38, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = "#00ffff";
-            ctx.font = "bold 14px Arial";
-            ctx.textAlign = "center";
-            ctx.fillText(`🛡️ ${secs}s`, player.x + 20, player.y - 8);
-            ctx.textAlign = "left";
-        }
 
         ctx.shadowBlur = 20; ctx.shadowColor = "#ffff00";
         ctx.fillStyle = "#ffff00";
@@ -583,13 +461,6 @@
 
     const nameInput = document.getElementById('playerName');
     const startBtn = document.getElementById('startBtn');
-
-    const savedName = localStorage.getItem('hhh_playerName');
-    if (savedName) {
-        nameInput.value = savedName;
-        startBtn.disabled = false;
-    }
-
     nameInput.addEventListener('input', () => startBtn.disabled = nameInput.value.trim().length < 1);
 
     requestAnimationFrame(update);
