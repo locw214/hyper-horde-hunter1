@@ -5,32 +5,16 @@
     <title>Hyper Horde Hunter</title>
     <style>
         body { margin:0; padding:0; background:#0a001a; color:white; font-family:'Segoe UI',sans-serif; overflow:hidden; display:flex; justify-content:center; align-items:center; height:100vh; }
-        #gameContainer { position:relative; width:480px; height:890px; overflow:hidden; box-shadow:0 0 100px rgba(0,255,255,0.9); border:7px solid #00ffff; border-radius:25px; transform-origin:top center; transition:transform 0.25s; }
+        #gameContainer { position:relative; width:480px; height:890px; overflow:hidden; box-shadow:0 0 100px rgba(0,255,255,0.9); border:7px solid #00ffff; border-radius:25px; }
         canvas { display:block; background:#000; }
 
-        #lobby, #levelSelect, #leaderboard, #comments, #settings {
+        #lobby, #levelSelect, #leaderboard {
             position:absolute; top:0; left:0; width:100%; height:100%;
             background:linear-gradient(135deg, #0f0022, #3a0055);
             display:flex; flex-direction:column; align-items:center; justify-content:center;
             z-index:100; gap:35px;
         }
-        #levelSelect, #leaderboard, #comments, #settings { display:none; }
-        .zoom-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; width:85%; }
-        .zoom-btn { padding:16px 0; font-size:20px; border-radius:16px; text-align:center; cursor:pointer; background:rgba(20,10,60,0.9); color:#00ffff; border:3px solid #00ffff44; transition:0.3s; }
-        .zoom-btn:hover, .zoom-btn.active { background:#00ffff22; border-color:#00ffff; transform:scale(1.06); }
-        .zoom-btn.active { border-color:#ffff00; color:#ffff00; }
-
-        #commentsPanel { display:flex; flex-direction:column; width:90%; height:78%; gap:0; }
-        #commentsList { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:10px; padding:10px 4px; scrollbar-width:thin; scrollbar-color:#00ffff33 transparent; }
-        .comment-item { display:flex; gap:10px; align-items:flex-start; }
-        .comment-avatar { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:16px; flex-shrink:0; border:2px solid rgba(0,255,255,0.4); }
-        .comment-body { flex:1; }
-        .comment-name { font-size:13px; color:#00ffff; font-weight:bold; }
-        .comment-text { font-size:15px; color:#eee; margin-top:2px; word-break:break-word; }
-        .comment-time { font-size:11px; color:#ffffff55; margin-top:2px; }
-        #commentInput { display:flex; gap:8px; padding:10px 0 0; border-top:1px solid #00ffff33; margin-top:6px; }
-        #commentInput input { flex:1; padding:10px 14px; font-size:15px; border-radius:12px; border:2px solid #00ffff66; background:rgba(0,0,30,0.8); color:white; }
-        #commentInput button { padding:10px 18px; font-size:15px; border-radius:12px; white-space:nowrap; }
+        #levelSelect, #leaderboard { display:none; }
 
         h1 { font-size:56px; letter-spacing:4px; background:linear-gradient(90deg, #00ffff, #ff00ff, #ffff00); -webkit-background-clip:text; -webkit-text-fill-color:transparent; animation: neonGlow 1.5s infinite alternate; }
         @keyframes neonGlow { from {text-shadow:0 0 30px #ff00ff;} to {text-shadow:0 0 60px #00ffff, 0 0 100px #ff00ff;} }
@@ -60,35 +44,6 @@
         <button id="startBtn" onclick="startGame()" disabled>START GAME</button>
         <button onclick="showGlobalLeaderboard()">🌐 GLOBAL LEADERBOARD</button>
         <button id="myRecordBtn" onclick="showMyRecords()">MY RECORD</button>
-        <button onclick="showComments()" style="background:rgba(255,0,200,0.15);border-color:#ff00cc;">💬 COMMENTS</button>
-        <button onclick="showSettings()" style="background:rgba(100,100,255,0.15);border-color:#8888ff;">⚙️ SETTINGS</button>
-    </div>
-
-    <div id="settings">
-        <h2 style="color:#8888ff;margin:0;">⚙️ SETTINGS</h2>
-        <p style="color:#aaa;margin:0;font-size:16px;">Zoom — pick the size that fits your screen</p>
-        <div class="zoom-grid">
-            <div class="zoom-btn" style="grid-column:1/-1;background:rgba(136,136,255,0.2);border-color:#8888ff;color:#fff;" onclick="autoFitZoom()">🔍 AUTO FIT SCREEN</div>
-            <div class="zoom-btn" onclick="setZoom(0.5)">50%<br><span style="font-size:12px;opacity:0.6">tiny</span></div>
-            <div class="zoom-btn" onclick="setZoom(0.6)">60%</div>
-            <div class="zoom-btn" onclick="setZoom(0.7)">70%</div>
-            <div class="zoom-btn" onclick="setZoom(0.8)">80%</div>
-            <div class="zoom-btn" onclick="setZoom(0.9)">90%</div>
-            <div class="zoom-btn" onclick="setZoom(1.0)">100%<br><span style="font-size:12px;opacity:0.6">default</span></div>
-        </div>
-        <button onclick="hideSettings()">Back</button>
-    </div>
-
-    <div id="comments">
-        <h2 style="color:#ff00ff;margin:0;">💬 COMMUNITY</h2>
-        <div id="commentsPanel">
-            <div id="commentsList"><div style="color:#ffffff55;text-align:center;margin-top:40px">Loading...</div></div>
-            <div id="commentInput">
-                <input id="commentText" type="text" placeholder="Write a comment..." maxlength="200">
-                <button onclick="sendComment()">Send</button>
-            </div>
-        </div>
-        <button onclick="hideComments()">Close</button>
     </div>
 
     <div id="levelSelect">
@@ -160,141 +115,24 @@
 
     async function showGlobalLeaderboard() {
         document.getElementById('leaderTitle').innerText = "🏆 GLOBAL LEADERBOARD";
+        document.getElementById('leaderTable').innerHTML = "<tr><td colspan='4'>Loading...</td></tr>";
         document.getElementById('leaderboard').style.display = 'flex';
-        try {
-            const data = await fetchGlobalScores(10);
-            updateLeaderboardTable(data);
-        } catch(e) {
-            document.getElementById('leaderTable').innerHTML = "<tr><td colspan='4'>Failed to load scores</td></tr>";
-        }
+        const data = await fetchGlobalScores(10);
+        updateLeaderboardTable(data);
     }
 
     async function showMyRecords() {
-        document.getElementById('leaderTitle').innerText = "📊 MY RECORDS";
+        document.getElementById('leaderTitle').innerText = "📊 MY BEST RECORDS (Top 3)";
+        document.getElementById('leaderTable').innerHTML = "<tr><td colspan='4'>Loading...</td></tr>";
         document.getElementById('leaderboard').style.display = 'flex';
-        try {
-            const all = await fetchGlobalScores(200);
-            const mine = all.filter(e => e.name === currentPlayerName);
-            updateLeaderboardTable(mine);
-        } catch(e) {
-            document.getElementById('leaderTable').innerHTML = "<tr><td colspan='4'>Failed to load scores</td></tr>";
-        }
+        const all = await fetchGlobalScores(100);
+        const mine = all.filter(e => e.name === currentPlayerName).slice(0, 3);
+        updateLeaderboardTable(mine);
     }
 
     function hideLeaderboard() {
         document.getElementById('leaderboard').style.display = 'none';
     }
-
-    // ==================== COMMENTS ====================
-    const AVATAR_COLORS = ["#ff4466","#ff8800","#ffdd00","#44ff88","#00ddff","#aa44ff","#ff44dd"];
-    function avatarColor(name) { let h = 0; for(let c of name) h = (h*31 + c.charCodeAt(0)) % AVATAR_COLORS.length; return AVATAR_COLORS[h]; }
-    function timeAgo(dateStr) {
-        const s = Math.floor((Date.now() - new Date(dateStr)) / 1000);
-        if (s < 60) return `${s}s ago`;
-        if (s < 3600) return `${Math.floor(s/60)}m ago`;
-        if (s < 86400) return `${Math.floor(s/3600)}h ago`;
-        return `${Math.floor(s/86400)}d ago`;
-    }
-
-    async function fetchComments() {
-        try {
-            const res = await fetch(`${API_BASE}/comments?limit=50`);
-            return await res.json();
-        } catch(e) { return []; }
-    }
-
-    function renderComments(data) {
-        const list = document.getElementById('commentsList');
-        if (!data || data.length === 0) {
-            list.innerHTML = `<div style="color:#ffffff55;text-align:center;margin-top:40px">No comments yet — be first! 🎮</div>`;
-            return;
-        }
-        list.innerHTML = data.map(c => `
-            <div class="comment-item">
-                <div class="comment-avatar" style="background:${avatarColor(c.name)}22;color:${avatarColor(c.name)}">${c.name[0].toUpperCase()}</div>
-                <div class="comment-body">
-                    <div class="comment-name">${c.name}</div>
-                    <div class="comment-text">${c.message.replace(/</g,'&lt;')}</div>
-                    <div class="comment-time">${timeAgo(c.createdAt)}</div>
-                </div>
-            </div>`).join('');
-    }
-
-    async function showComments() {
-        document.getElementById('comments').style.display = 'flex';
-        document.getElementById('commentsList').innerHTML = `<div style="color:#ffffff55;text-align:center;margin-top:40px">Loading...</div>`;
-        const data = await fetchComments();
-        renderComments(data);
-    }
-
-    function hideComments() {
-        document.getElementById('comments').style.display = 'none';
-    }
-
-    async function sendComment() {
-        const input = document.getElementById('commentText');
-        const msg = input.value.trim();
-        if (!msg) return;
-        const name = currentPlayerName !== "Player" ? currentPlayerName : (document.getElementById('playerName').value.trim() || "Anonymous");
-        input.value = '';
-        input.disabled = true;
-        try {
-            await fetch(`${API_BASE}/comments`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, message: msg }),
-            });
-            const data = await fetchComments();
-            renderComments(data);
-        } catch(e) {}
-        input.disabled = false;
-        input.focus();
-    }
-
-    document.getElementById('commentText').addEventListener('keydown', e => { if (e.key === 'Enter') sendComment(); });
-
-    // ==================== SETTINGS / ZOOM ====================
-    function setZoom(scale) {
-        document.getElementById('gameContainer').style.transform = `scale(${scale})`;
-        localStorage.setItem('hhh_zoom', scale);
-        document.querySelectorAll('.zoom-btn').forEach(btn => {
-            btn.classList.toggle('active', parseFloat(btn.textContent) === scale * 100);
-        });
-    }
-
-    function showSettings() {
-        document.getElementById('settings').style.display = 'flex';
-        const saved = parseFloat(localStorage.getItem('hhh_zoom') || '1');
-        document.querySelectorAll('.zoom-btn').forEach(btn => {
-            btn.classList.toggle('active', parseFloat(btn.textContent) === saved * 100);
-        });
-    }
-
-    function hideSettings() {
-        document.getElementById('settings').style.display = 'none';
-    }
-
-    function autoFitZoom() {
-        const scaleH = window.innerHeight / 890;
-        const scaleW = window.innerWidth / 480;
-        const scale = Math.min(1, scaleH, scaleW);
-        document.getElementById('gameContainer').style.transform = `scale(${scale})`;
-        localStorage.setItem('hhh_zoom', scale);
-        document.querySelectorAll('.zoom-btn').forEach(btn => {
-            btn.classList.toggle('active', parseFloat(btn.textContent) === Math.round(scale * 100));
-        });
-    }
-
-    window.addEventListener('resize', autoFitZoom);
-
-    (function applyZoomOnLoad() {
-        const saved = localStorage.getItem('hhh_zoom');
-        if (saved) {
-            document.getElementById('gameContainer').style.transform = `scale(${saved})`;
-        } else {
-            autoFitZoom();
-        }
-    })();
 
     // ============================================================
     // GAME ENGINE
